@@ -302,16 +302,6 @@ class ClassMetadataFactory
                 $this->completeIdGeneratorMapping($class);
             }
 
-            // verify inheritance
-            if (!$parent && !$class->isMappedSuperclass && !$class->isInheritanceTypeNone()) {
-                if (count($class->discriminatorMap) == 0) {
-                    throw MappingException::missingDiscriminatorMap($class->name);
-                }
-                if (!$class->discriminatorColumn) {
-                    throw MappingException::missingDiscriminatorColumn($class->name);
-                }
-            }
-
             if ($parent && $parent->isInheritanceTypeSingleTable()) {
                 $class->setPrimaryTable($parent->table);
             }
@@ -321,6 +311,16 @@ class ClassMetadataFactory
             if ($this->evm->hasListeners(Events::loadClassMetadata)) {
                 $eventArgs = new \Doctrine\ORM\Event\LoadClassMetadataEventArgs($class);
                 $this->evm->dispatchEvent(Events::loadClassMetadata, $eventArgs);
+            }
+
+            // verify inheritance
+            if (!$parent && !$class->isMappedSuperclass && !$class->isInheritanceTypeNone()) {
+                if (count($class->discriminatorMap) == 0) {
+                    throw MappingException::missingDiscriminatorMap($class->name);
+                }
+                if (!$class->discriminatorColumn) {
+                    throw MappingException::missingDiscriminatorColumn($class->name);
+                }
             }
 
             $this->loadedMetadata[$className] = $class;
@@ -379,6 +379,10 @@ class ClassMetadataFactory
     private function addInheritedRelations(ClassMetadata $subClass, ClassMetadata $parentClass)
     {
         foreach ($parentClass->associationMappings as $field => $mapping) {
+            if ($parentClass->isMappedSuperclass) {
+                $mapping['sourceEntity'] = $subClass->name;
+            }
+
             //$subclassMapping = $mapping;
             if ( ! isset($mapping['inherited']) && ! $parentClass->isMappedSuperclass) {
                 $mapping['inherited'] = $parentClass->name;

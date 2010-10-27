@@ -660,7 +660,7 @@ class BasicEntityPersister
                         if ($found = $this->_em->getUnitOfWork()->tryGetById($joinColumnValues, $targetClass->rootEntityName)) {
                             $this->_class->reflFields[$field]->setValue($entity, $found);
                             // Complete inverse side, if necessary.
-                            if ($assoc['inversedBy']) {
+                            if ($assoc['inversedBy'] && $assoc['type'] & ClassMetadata::ONE_TO_ONE) {
                                 $inverseAssoc = $targetClass->associationMappings[$assoc['inversedBy']];
                                 $targetClass->reflFields[$inverseAssoc['fieldName']]->setValue($found, $entity);
                             }
@@ -681,6 +681,9 @@ class BasicEntityPersister
                 }
             } else if ($value instanceof PersistentCollection && $value->isInitialized()) {
                 $value->setInitialized(false);
+                // no matter if dirty or non-dirty entities are already loaded, smoke them out!
+                // the beauty of it being, they are still in the identity map
+                $value->unwrap()->clear(); 
                 $newData[$field] = $value;
             }
         }
@@ -1128,9 +1131,16 @@ class BasicEntityPersister
                 }
                 $conditionSql .= $this->_class->getQuotedColumnName($field, $this->_platform);
             } else if (isset($this->_class->associationMappings[$field])) {
-                // TODO: Inherited?
-                // TODO: Composite Keys as Foreign Key PK? That would be super ugly! And should probably be disallowed ;)
-                $conditionSql .= $this->_getSQLTableAlias($this->_class->name) . '.';
+
+                if (!$this->_class->associationMappings[$field]['isOwningSide']) {
+                    throw ORMException::invalidFindByInverseAssociation($this->_class->name, $field);
+                }
+
+                if (isset($this->_class->associationMappings[$field]['inherited'])) {
+                    $conditionSql .= $this->_getSQLTableAlias($this->_class->associationMappings[$field]['inherited']) . '.';
+                } else {
+                    $conditionSql .= $this->_getSQLTableAlias($this->_class->name) . '.';
+                }
 
                 $conditionSql .= $this->_class->associationMappings[$field]['joinColumns'][0]['name'];
             } else if ($assoc !== null) {

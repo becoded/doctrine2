@@ -573,7 +573,7 @@ class UnitOfWork implements PropertyChangedListener
                 $this->computeChangeSet($targetClass, $entry);
             } else if ($state == self::STATE_REMOVED) {
                 return new InvalidArgumentException("Removed entity detected during flush: "
-                        . self::objToStr($removedEntity).". Remove deleted entities from associations.");
+                        . self::objToStr($entry).". Remove deleted entities from associations.");
             } else if ($state == self::STATE_DETACHED) {
                 // Can actually not happen right now as we assume STATE_NEW,
                 // so the exception will be raised from the DBAL layer (constraint violation).
@@ -1889,7 +1889,7 @@ class UnitOfWork implements PropertyChangedListener
                         if ($assoc['isOwningSide']) {
                             $associatedId = array();
                             foreach ($assoc['targetToSourceKeyColumns'] as $targetColumn => $srcColumn) {
-                                $joinColumnValue = $data[$srcColumn];
+                                $joinColumnValue = isset($data[$srcColumn]) ? $data[$srcColumn] : null;
                                 if ($joinColumnValue !== null) {
                                     $associatedId[$targetClass->fieldNames[$targetColumn]] = $joinColumnValue;
                                 }
@@ -1937,14 +1937,12 @@ class UnitOfWork implements PropertyChangedListener
                         }
                     } else {
                         // Inject collection
-                        $reflField = $class->reflFields[$field];
-                        $pColl = new PersistentCollection(
-                            $this->em, $targetClass,
-                            //TODO: getValue might be superfluous once DDC-79 is implemented. 
-                            $reflField->getValue($entity) ?: new ArrayCollection
-                        );
+                        $pColl = new PersistentCollection($this->em, $targetClass, new ArrayCollection);
                         $pColl->setOwner($entity, $assoc);
+                        
+                        $reflField = $class->reflFields[$field];
                         $reflField->setValue($entity, $pColl);
+                        
                         if ($assoc['fetch'] == ClassMetadata::FETCH_LAZY) {
                             $pColl->setInitialized(false);
                         } else {
