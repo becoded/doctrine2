@@ -910,8 +910,8 @@ class BasicEntityPersister
             $columnList .= $this->_getSelectColumnSQL($field, $this->_class);
         }
 
-        $this->_selectColumnListSql = $columnList . $this->_getSelectJoinColumnsSQL($this->_class);
-
+        $this->_selectColumnListSql = trim($columnList . $this->_getSelectJoinColumnsSQL($this->_class), ',');
+        
         return $this->_selectColumnListSql;
     }
 
